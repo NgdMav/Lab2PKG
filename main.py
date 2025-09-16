@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QLabel, QFileDialog, QTableView, QHeaderView, QAbstractItemView,
     QProgressBar, QMessageBox, QFrame, QStyleFactory, QStatusBar
 )
-from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon, QPixmap
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon, QPixmap, QImage
 from PySide6.QtCore import Qt, Signal, QObject, QSize, QTimer, QSortFilterProxyModel, QRegularExpression
 from scanner import ScanEmitter, scan_folder
 from PIL import Image
@@ -258,15 +258,27 @@ class MainWindow(QWidget):
             return
 
         idx = indexes[0].row()
-        item = self.model.item(idx, 0).data(Qt.UserRole + 1)
+        src_idx = self.proxy.mapToSource(self.proxy.index(idx, 0))
+        item = self.model.item(src_idx.row(), 0).data(Qt.UserRole + 1)
         if not item:
             return
 
         path = item.get("path")
-        pix = QPixmap(path)
-        if not pix.isNull():
+        pix = None  
+        try:
+            with Image.open(path) as im:
+                im.thumbnail((300, 220))
+                im_rgba = im.convert("RGBA")
+                data = im_rgba.tobytes("raw", "RGBA")
+                qimg = QImage(data, im_rgba.width, im_rgba.height, QImage.Format_RGBA8888)
+                pix = QPixmap.fromImage(qimg)
+        except Exception as e:
+            print("Ошибка предпросмотра:", e)
+
+        if pix and not pix.isNull():
             pix = pix.scaled(
-                self.preview_label.size(),
+                self.preview_label.width(),
+                self.preview_label.height(),
                 Qt.KeepAspectRatio,
                 Qt.SmoothTransformation
             )
@@ -276,6 +288,7 @@ class MainWindow(QWidget):
             self.preview_label.setText("Нет предпросмотра")
             self.preview_label.setPixmap(QPixmap())
 
+        # metadata
         lines = [f"Файл: {item.get('filename')}", f"Формат: {item.get('format')}"]
         w, h = item.get("width"), item.get("height")
         if w and h:
