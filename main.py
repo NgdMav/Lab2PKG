@@ -70,12 +70,36 @@ class MainWindow(QWidget):
         middle = QHBoxLayout()
         root.addLayout(middle, 1)
 
-        # Table
+        # Table + Filters
+        middle = QVBoxLayout()
+        root.addLayout(middle, 1)
+
+        # Filter
+        filter_layout = QHBoxLayout()
+        self.filter_format = QLineEdit()
+        self.filter_format.setPlaceholderText("Фильтр: формат (jpg, png...)")
+        self.filter_depth = QLineEdit()
+        self.filter_depth.setPlaceholderText("Фильтр: глубина (бит)")
+        self.filter_error = QLineEdit()
+        self.filter_error.setPlaceholderText("Фильтр: ошибка")
+
+        filter_layout.addWidget(self.filter_format)
+        filter_layout.addWidget(self.filter_depth)
+        filter_layout.addWidget(self.filter_error)
+        middle.addLayout(filter_layout)
+
+        # Tabel
         self.table = QTableView()
         self.model = QStandardItemModel(0, 8)
         headers = ["Имя файла", "Формат", "Размер (px)", "DPI", "Глубина (bit)", "Сжатие", "Ошибка", "Дополнительно"]
         self.model.setHorizontalHeaderLabels(headers)
-        self.table.setModel(self.model)
+
+        # Proxy filter
+        self.proxy = QSortFilterProxyModel(self)
+        self.proxy.setSourceModel(self.model)
+        self.proxy.setFilterKeyColumn(-1)  # будем сами задавать
+        self.table.setModel(self.proxy)
+
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         middle.addWidget(self.table, 3)
@@ -118,6 +142,10 @@ class MainWindow(QWidget):
         self.forwarder.progress_signal.connect(self._on_progress)
         self.forwarder.finished_signal.connect(self._on_finished)
 
+        self.filter_format.textChanged.connect(lambda text: self._apply_filter())
+        self.filter_depth.textChanged.connect(lambda text: self._apply_filter())
+        self.filter_error.textChanged.connect(lambda text: self._apply_filter())
+
     def _browse_folder(self):
         d = QFileDialog.getExistingDirectory(self, "Выберите папку для сканирования")
         if d:
@@ -158,6 +186,26 @@ class MainWindow(QWidget):
             self.scanner_emitter.cancel()
             self.status.showMessage("Отмена запускается...")
             self.btn_cancel.setEnabled(False)
+
+    def _apply_filter(self):
+        # Собираем фильтры
+        fmt = self.filter_format.text().strip()
+        depth = self.filter_depth.text().strip()
+        err = self.filter_error.text().strip()
+
+        regex_parts = []
+        if fmt:
+            regex_parts.append(f"(?=.*{fmt})")
+        if depth:
+            regex_parts.append(f"(?=.*{depth})")
+        if err:
+            regex_parts.append(f"(?=.*{err})")
+
+        if regex_parts:
+            regex = "".join(regex_parts)
+            self.proxy.setFilterRegularExpression(QRegularExpression(regex, QRegularExpression.CaseInsensitiveOption))
+        else:
+            self.proxy.setFilterRegularExpression(QRegularExpression())
 
     def _on_item_received(self, item: dict):
         # добавляем строку в таблицу
