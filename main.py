@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QProgressBar, QMessageBox, QFrame, QStyleFactory, QStatusBar
 )
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon, QPixmap
-from PySide6.QtCore import Qt, Signal, QObject, QSize, QTimer
+from PySide6.QtCore import Qt, Signal, QObject, QSize, QTimer, QSortFilterProxyModel, QRegularExpression
 from scanner import ScanEmitter, scan_folder
 from PIL import Image
 import threading
@@ -164,23 +164,18 @@ class MainWindow(QWidget):
         row = []
         fname = item.get("filename", item.get("path", ""))
         row.append(QStandardItem(fname))
-        row.append(QStandardItem(str(item.get("format", ""))))
-        w = item.get("width"); h = item.get("height")
-        row.append(QStandardItem(f"{w}×{h}" if w and h else ""))
-        dx = item.get("dpi_x")
-        dy = item.get("dpi_y")
-        if dx and dy:
-            try:
-                dx_val, dy_val = float(dx), float(dy)
-                dpi_text = f"{dx_val:.1f}×{dy_val:.1f}"
-            except Exception:
-                dpi_text = f"{dx}×{dy}"
-        else:
-            dpi_text = ""
+        row.append(QStandardItem(safe_str(item.get("format"))))
+
+        w, h = item.get("width"), item.get("height")
+        size_text = f"{safe_str(w)}×{safe_str(h)}" if w and h else ""
+        row.append(QStandardItem(size_text))
+
+        dx, dy = item.get("dpi_x"), item.get("dpi_y")
+        dpi_text = f"{safe_float(dx)}×{safe_float(dy)}" if dx and dy else ""
         row.append(QStandardItem(dpi_text))
 
-        row.append(QStandardItem(str(item.get("depth", ""))))
-        row.append(QStandardItem(str(item.get("compression", ""))))
+        row.append(QStandardItem(safe_str(item.get("depth"))))
+        row.append(QStandardItem(safe_str(item.get("compression"))))
         row.append(QStandardItem(item.get("error", "")))
         # additional summary
         add = item.get("additional", {})
@@ -278,7 +273,20 @@ class MainWindow(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить CSV:\n{e}")
 
-            
+def safe_float(val, ndigits=1):
+    """Пытается привести к float с округлением. Возвращает str."""
+    try:
+        return f"{float(val):.{ndigits}f}"
+    except Exception:
+        return str(val) if val is not None else ""
+
+def safe_str(val):
+    """Гарантирует, что любое значение станет строкой (для таблицы)."""
+    try:
+        return str(val) if val is not None else ""
+    except Exception:
+        return ""
+           
 
 def main():
     app = QApplication(sys.argv)
