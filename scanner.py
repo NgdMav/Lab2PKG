@@ -1,4 +1,3 @@
-# scanner.py
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from formats_info import inspect_image

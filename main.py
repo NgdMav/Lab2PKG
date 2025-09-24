@@ -1,4 +1,3 @@
-# main.py
 import sys
 import csv
 from pathlib import Path
@@ -13,7 +12,6 @@ from scanner import ScanEmitter, scan_folder
 from PIL import Image
 import threading
 
-# Helper QObject to forward callbacks to Qt signals (thread-safe)
 class SignalForwarder(QObject):
     item_signal = Signal(dict)
     progress_signal = Signal(int, int)
@@ -26,7 +24,7 @@ class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Image Inspector — File Metadata Scanner")
-        self.setFixedSize(1024, 640)
+        self.setFixedSize(1200, 640)
         self._setup_style()
         self._setup_ui()
         self._connect_signals()
@@ -52,7 +50,7 @@ class MainWindow(QWidget):
         self.folder_edit.setPlaceholderText("Выберите папку с изображениями...")
         top.addWidget(self.folder_edit, 1)
 
-        btn_browse = QPushButton("📁 Открыть папку")
+        btn_browse = QPushButton("Открыть папку")
         btn_browse.clicked.connect(self._browse_folder)
         top.addWidget(btn_browse)
 
@@ -71,7 +69,7 @@ class MainWindow(QWidget):
         root.addLayout(middle, 1)
 
         # Table + Filters
-        middle = QVBoxLayout()
+        # middle = QVBoxLayout()
         root.addLayout(middle, 1)
 
         # Filter
@@ -86,7 +84,7 @@ class MainWindow(QWidget):
         filter_layout.addWidget(self.filter_format)
         filter_layout.addWidget(self.filter_depth)
         filter_layout.addWidget(self.filter_error)
-        middle.addLayout(filter_layout)
+        root.addLayout(filter_layout)
 
         # Tabel
         self.table = QTableView()
@@ -97,7 +95,7 @@ class MainWindow(QWidget):
         # Proxy filter
         self.proxy = QSortFilterProxyModel(self)
         self.proxy.setSourceModel(self.model)
-        self.proxy.setFilterKeyColumn(-1)  # будем сами задавать
+        self.proxy.setFilterKeyColumn(-1)
         self.table.setModel(self.proxy)
 
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -188,7 +186,6 @@ class MainWindow(QWidget):
             self.btn_cancel.setEnabled(False)
 
     def _apply_filter(self):
-        # Собираем фильтры
         fmt = self.filter_format.text().strip()
         depth = self.filter_depth.text().strip()
         err = self.filter_error.text().strip()
@@ -208,7 +205,6 @@ class MainWindow(QWidget):
             self.proxy.setFilterRegularExpression(QRegularExpression())
 
     def _on_item_received(self, item: dict):
-        # добавляем строку в таблицу
         row = []
         fname = item.get("filename", item.get("path", ""))
         row.append(QStandardItem(fname))
@@ -231,7 +227,6 @@ class MainWindow(QWidget):
         row.append(QStandardItem(add_summary))
 
         self.model.appendRow(row)
-        # attach full result as data on first item for preview
         index = (self.model.rowCount() - 1, 0)
         self.model.item(index[0], 0).setData(item, Qt.UserRole + 1)
         self.btn_export.setEnabled(True)
@@ -335,14 +330,12 @@ class MainWindow(QWidget):
             QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить CSV:\n{e}")
 
 def safe_float(val, ndigits=1):
-    """Пытается привести к float с округлением. Возвращает str."""
     try:
         return f"{float(val):.{ndigits}f}"
     except Exception:
         return str(val) if val is not None else ""
 
 def safe_str(val):
-    """Гарантирует, что любое значение станет строкой (для таблицы)."""
     try:
         return str(val) if val is not None else ""
     except Exception:
